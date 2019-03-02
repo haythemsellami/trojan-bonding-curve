@@ -1,0 +1,22 @@
+{
+  "name": "trojan-bonding-curve",
+  "version": "1.0.0",
+  "description": "A sample for Trojan Foundation bonding curve",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "ethereum",
+    "token",
+    "solidity",
+    "smart-contracts"
+  ],
+  "author": "Haythem Sellami",
+  "license": "ISC",
+  "dependencies": {
+    "openzeppelin-eth": "^2.1.3",
+    "truffle": "^5.0.6",
+    "zos": "^2.2.1"
+  }
+}
