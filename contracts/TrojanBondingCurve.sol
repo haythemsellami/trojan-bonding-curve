@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.0;
 
 
 import "zos-lib/contracts/Initializable.sol";
@@ -6,7 +6,7 @@ import "./BondingCurve.sol";
 
 contract TrojanBondingCurve is Initializable, BondingCurve {
 
-    address public wallet;
+    address payable public wallet;
 
     uint256 public buyExponent;
     uint256 public sellExponent;
@@ -17,10 +17,10 @@ contract TrojanBondingCurve is Initializable, BondingCurve {
     event Payout(uint256 payout, uint256 indexed timestamp);
 
     function initialize(
-        string name, 
-        string symbol, 
+        string memory name, 
+        string memory symbol, 
         uint8 decimals,
-        address _wallet,
+        address payable _wallet,
         uint256 _buyExponent,
         uint256 _sellExponent,
         uint256 _buyInverseSlope,
@@ -62,17 +62,17 @@ contract TrojanBondingCurve is Initializable, BondingCurve {
     }
 
     /// Overwrite
-    function buy(uint256 tokens)
-        public payable returns (uint256 paid)
-    {
+    function buy(uint256 tokens) public payable {
         uint256 spreadBefore = spread(totalSupply());
-        paid = super.buy(tokens);
+        super.buy(tokens);
+
         uint256 spreadAfter = spread(totalSupply());
 
         uint256 spreadPayout = spreadAfter.sub(spreadBefore);
         reserve = reserve.sub(spreadPayout);
         wallet.transfer(spreadPayout);
         emit Payout(spreadPayout, now);
+
     }
 
     function calculateSaleReturn(uint256 tokens)

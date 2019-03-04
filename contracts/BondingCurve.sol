@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.0;
 
 
 import "openzeppelin-eth/contracts/math/SafeMath.sol";
@@ -15,7 +15,7 @@ contract BondingCurve is Initializable, ERC20, ERC20Detailed {
     event CurveBuy(uint256 amount, uint256 paid, uint256 indexed when);
     event CurveSell(uint256 amount, uint256 rewarded, uint256 indexed when);
 
-    function initialize(string name, string symbol, uint8 decimals) public initializer {
+    function initialize(string memory name, string memory symbol, uint8 decimals) public initializer {
         ERC20Detailed.initialize(name, symbol, decimals);
     }
 
@@ -26,12 +26,10 @@ contract BondingCurve is Initializable, ERC20, ERC20Detailed {
     function calculateSaleReturn(uint256 tokens) public view returns (uint256 theReward);
 
 
-    function buy(uint256 tokens)
-        public payable returns (uint256 paid)
-    {
+    function buy(uint256 tokens) public payable {
         require(tokens > 0, "Must request non-zero amount of tokens.");
 
-        paid = calculatePurchaseReturn(tokens);
+        uint256 paid = calculatePurchaseReturn(tokens);
         require(
             msg.value >= paid,
             "Did not send enough ether to buy!"
@@ -39,12 +37,13 @@ contract BondingCurve is Initializable, ERC20, ERC20Detailed {
 
         reserve = reserve.add(paid);
         _mint(msg.sender, tokens);
-        // extra funds handling
+        //extra funds handling
         if (msg.value > paid) {
             msg.sender.transfer(msg.value.sub(paid));
         }
 
         emit CurveBuy(tokens, paid, now);
+
     } 
     
     function sell(uint256 tokens)

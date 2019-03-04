@@ -2,5 +2,10 @@
   "zosversion": "2.2",
   "name": "trojan-bonding-curve",
   "version": "0.1.0",
-  "contracts": {}
+  "contracts": {
+    "TrojanBondingCurve": "TrojanBondingCurve"
+  },
+  "dependencies": {
+    "openzeppelin-eth": "^2.1.3"
+  }
 }
