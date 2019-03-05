@@ -6,13 +6,14 @@ import "./BondingCurve.sol";
 
 contract TrojanBondingCurve is Initializable, BondingCurve {
 
-    address payable public wallet;
+    address payable wallet;
 
-    uint256 public buyExponent;
-    uint256 public sellExponent;
-
-    uint256 public buyInverseSlope;
-    uint256 public sellInverseSlope;
+    // Desired Curve: Linear Progression W/ % Buy/Sell Delta
+    // Ex: Sell is always 90% of buy price.
+    // https://www.desmos.com/calculator/9ierxx6kjw
+    uint256 slopeNumerator;
+    uint256 slopeDenominator;
+    uint256 sellPercentage; // ex: 90 == 90% of buy price
 
     event Payout(uint256 payout, uint256 indexed timestamp);
 
@@ -21,44 +22,40 @@ contract TrojanBondingCurve is Initializable, BondingCurve {
         string memory symbol, 
         uint8 decimals,
         address payable _wallet,
-        uint256 _buyExponent,
-        uint256 _sellExponent,
-        uint256 _buyInverseSlope,
-        uint256 _sellInverseSlope
+        uint256 _slopeNumerator,
+        uint256 _slopeDenominator,
+        uint256 _sellPercentage
     ) public initializer {
+        require(
+            _sellPercentage < 100 && _sellPercentage != 0,
+            "Percentage must be between 0 & 100"
+        );
+
         BondingCurve.initialize(name, symbol, decimals);
         wallet = _wallet;
-        buyExponent = _buyExponent;
-        sellExponent = _sellExponent;
-        buyInverseSlope = _buyInverseSlope;
-        sellInverseSlope = _sellInverseSlope;
+        slopeNumerator = _slopeNumerator;
+        slopeDenominator = _slopeDenominator;
+        sellPercentage = _sellPercentage;
     }
 
-    function integral(
-        uint256 toX,
-        uint256 exponent,
-        uint256 inverseSlope
-    )   internal pure returns (uint256) {
-        uint256 nexp = exponent.add(1);
-        return (toX ** nexp).div(nexp).div(inverseSlope).div(10**18);
+    function buyIntegral(uint256 x)
+        internal view returns (uint256)
+    {
+        return (slopeNumerator * x * x) / (2 * slopeDenominator);
+    }
+
+    function sellIntegral(uint256 x)
+        internal view returns (uint256)
+    {
+        return (slopeNumerator * x * x * sellPercentage) / (200 * slopeDenominator);
     }
 
     function spread(uint256 toX)
         public view returns (uint256)
     {
-        uint256 buyIntegral = integral(toX, buyExponent, buyInverseSlope);
-        uint256 sellIntegral = integral(toX, sellExponent, sellInverseSlope);
-        return buyIntegral.sub(sellIntegral);
-    }
-
-    function calculatePurchaseReturn(uint256 tokens)
-        public view returns (uint256)
-    {
-        return integral(
-            totalSupply().add(tokens),
-            buyExponent,
-            buyInverseSlope
-        ).sub(reserve);
+        uint256 buy = buyIntegral(toX);
+        uint256 sell = sellIntegral(toX);
+        return buy.sub(sell);
     }
 
     /// Overwrite
@@ -71,17 +68,24 @@ contract TrojanBondingCurve is Initializable, BondingCurve {
         uint256 spreadPayout = spreadAfter.sub(spreadBefore);
         reserve = reserve.sub(spreadPayout);
         wallet.transfer(spreadPayout);
-        emit Payout(spreadPayout, now);
 
+        emit Payout(spreadPayout, now);
+    }
+
+    function calculatePurchaseReturn(uint256 tokens)
+        public view returns (uint256)
+    {
+        return buyIntegral(
+            totalSupply().add(tokens)
+        ).sub(reserve);
     }
 
     function calculateSaleReturn(uint256 tokens)
         public view returns (uint256)
     {
-        return reserve.sub(integral(
-            totalSupply().sub(tokens),
-            sellExponent,
-            sellInverseSlope
+        return reserve.sub(
+            sellIntegral(
+                totalSupply().sub(tokens)
         ));
     }
 }

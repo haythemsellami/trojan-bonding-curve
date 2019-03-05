@@ -4,6 +4,7 @@
   "description": "A sample for Trojan Foundation bonding curve",
   "main": "index.js",
   "scripts": {
+    "compile": "truffle compile",
     "test": "truffle test"
   },
   "keywords": [
