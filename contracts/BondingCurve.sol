@@ -43,9 +43,8 @@ contract BondingCurve is Initializable, ERC20, ERC20Detailed {
         }
 
         emit CurveBuy(tokens, paid, now);
+    }
 
-    } 
-    
     function sell(uint256 tokens)
         public returns (uint256 rewarded)
     {
