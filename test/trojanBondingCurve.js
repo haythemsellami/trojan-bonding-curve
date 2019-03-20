@@ -26,6 +26,20 @@ const log = (name, value) => {
     );
 }
 
+const buyIntegral = (x, slopeNumerator, slopeDenominator) => {
+    return (slopeNumerator * x * x) / (2 * slopeDenominator);
+}
+
+const sellIntegral = (x, slopeNumerator, slopeDenominator, sellPercentage) => {
+    return (slopeNumerator * x * x * sellPercentage) / (200 * slopeDenominator);
+}
+
+const spread = (toX, slopeNumerator, slopeDenominator, sellPercentage) => {
+    let buy = buyIntegral(toX, slopeNumerator, slopeDenominator);
+    let sell = sellIntegral(toX, slopeNumerator, slopeDenominator, sellPercentage);
+    return parseInt(buy) - parseInt(sell);
+}
+
 require('chai').should();
 
 contract('Trojan Bonding Curve', (accounts) => {
@@ -37,6 +51,10 @@ contract('Trojan Bonding Curve', (accounts) => {
     const member3 = accounts[4];
 
     let trojanBondingCurve;
+    let _slopeNumerator = 1;
+    let _slopeDenominator = 1;
+    let _sellPercentage = 90;
+    let _reserve = 0;
 
     describe("init smart contract", async() => {
 
@@ -47,9 +65,9 @@ contract('Trojan Bonding Curve', (accounts) => {
                 'TF',
                 18,
                 projectWallet,
-                1,
-                1,
-                90
+                _slopeNumerator,
+                _slopeDenominator,
+                _sellPercentage
             );
 
             assert.notEqual(trojanBondingCurve, undefined);
@@ -57,52 +75,60 @@ contract('Trojan Bonding Curve', (accounts) => {
     });
 
     describe("Buy tokens", async() => {
-        let spreadPayout;
+        //number of token to buy
         let tokenPurchaseNumber = 250;
+        //price
+        let purchaseReturn;
+        //spread
+        let spreadPayout;
 
         beforeEach(async() => {    
             let totalSupply = await trojanBondingCurve.totalSupply();
-            let spreadBefore = await trojanBondingCurve.spread(totalSupply.toNumber());
-            log("Calculated spread before buying", spreadBefore.toNumber());
-            let spreadAfter = await trojanBondingCurve.spread((totalSupply.toNumber() + tokenPurchaseNumber));
-            log("Calculated spread after buying", spreadAfter.toNumber());
-            spreadPayout = spreadAfter.toNumber() - spreadBefore.toNumber();
-            log("Calculated project reward", spreadPayout);
+            let newSupply = parseInt(totalSupply) + parseInt(tokenPurchaseNumber);
+            //calculate purchase price
+            purchaseReturn = buyIntegral(newSupply, _slopeNumerator, _slopeDenominator) - parseInt(_reserve);
+            //calculate spread payout
+            let spreadBefore = spread(totalSupply.toNumber(), _slopeNumerator, _slopeDenominator, _sellPercentage);
+            let spreadAfter = spread(newSupply, _slopeNumerator, _slopeDenominator, _sellPercentage);
+            spreadPayout = spreadAfter - spreadBefore;
+            _reserve += spreadPayout;
         });
 
         it(`should buy ${tokenPurchaseNumber} tokens for member1`, async() => {
             let price = await trojanBondingCurve.calculatePurchaseReturn(tokenPurchaseNumber, { from: member1 });
-            log("Tokens price", price);
+            assert.equal(price.toNumber(), purchaseReturn);
             let buyTokensTx = await trojanBondingCurve.buy(tokenPurchaseNumber, { from: member1, value: price });
             let memberBalance = await trojanBondingCurve.balanceOf(member1);
             assert.equal(memberBalance, tokenPurchaseNumber);
             //check project reward equal to the calculated one
             assert.equal(buyTokensTx.logs[2].args.payout, spreadPayout);
-            logProjectReward(buyTokensTx, "TrojanBondingCurve::Payout()");
         });
 
         it(`should buy ${tokenPurchaseNumber} tokens for member2`, async() => {
             let price = await trojanBondingCurve.calculatePurchaseReturn(tokenPurchaseNumber, { from: member2 });
-            log("Tokens price", price);
+            assert.equal(price.toNumber(), purchaseReturn);
             let buyTokensTx = await trojanBondingCurve.buy(tokenPurchaseNumber, { from: member2, value: price });
             let memberBalance = await trojanBondingCurve.balanceOf(member2);
             assert.equal(memberBalance, tokenPurchaseNumber);
             //check project reward equal to the calculated one
             assert.equal(buyTokensTx.logs[2].args.payout, spreadPayout);
-            logProjectReward(buyTokensTx, "TrojanBondingCurve::Payout()");
         });
 
         it(`should buy ${tokenPurchaseNumber} tokens for member3`, async() => {
             let price = await trojanBondingCurve.calculatePurchaseReturn(tokenPurchaseNumber, { from: member3 });
-            log("Tokens price", price);
+            assert.equal(price.toNumber(), purchaseReturn);
             let buyTokensTx = await trojanBondingCurve.buy(tokenPurchaseNumber, { from: member3, value: price });
             let memberBalance = await trojanBondingCurve.balanceOf(member3);
             assert.equal(memberBalance, tokenPurchaseNumber);
             //check project reward equal to the calculated one
             assert.equal(buyTokensTx.logs[2].args.payout, spreadPayout);
-            logProjectReward(buyTokensTx, "TrojanBondingCurve::Payout()");
         });
 
     });
+/*
+    describe("Sell tokens", async() => {
 
+        it('');
+    });
+*/
 });
