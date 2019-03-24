@@ -1,5 +1,6 @@
 const { TestHelper } = require('zos');
 const { Contracts, ZWeb3 } = require('zos-lib');
+const { assertRevert } = require('./helpers/assertThrow');
 
 ZWeb3.initialize(web3.currentProvider);
 const TrojanBondingCurve = artifacts.require("TrojanBondingCurve.sol");
@@ -49,6 +50,8 @@ contract('Trojan Bonding Curve', (accounts) => {
     const member1 = accounts[2];
     const member2 = accounts[3];
     const member3 = accounts[4];
+    const member4 = accounts[5];
+    const member5 = accounts[6];
 
     let trojanBondingCurve;
     let _slopeNumerator = 1;
@@ -91,7 +94,8 @@ contract('Trojan Bonding Curve', (accounts) => {
             let spreadBefore = spread(totalSupply.toNumber(), _slopeNumerator, _slopeDenominator, _sellPercentage);
             let spreadAfter = spread(newSupply, _slopeNumerator, _slopeDenominator, _sellPercentage);
             spreadPayout = spreadAfter - spreadBefore;
-            _reserve += spreadPayout;
+            _reserve += purchaseReturn;
+            _reserve -= spreadPayout;
         });
 
         it(`should buy ${tokenPurchaseNumber} tokens for member1`, async() => {
@@ -102,6 +106,7 @@ contract('Trojan Bonding Curve', (accounts) => {
             assert.equal(memberBalance, tokenPurchaseNumber);
             //check project reward equal to the calculated one
             assert.equal(buyTokensTx.logs[2].args.payout, spreadPayout);
+            assert.equal((await trojanBondingCurve.reserve()).toNumber(), _reserve);
         });
 
         it(`should buy ${tokenPurchaseNumber} tokens for member2`, async() => {
@@ -112,6 +117,7 @@ contract('Trojan Bonding Curve', (accounts) => {
             assert.equal(memberBalance, tokenPurchaseNumber);
             //check project reward equal to the calculated one
             assert.equal(buyTokensTx.logs[2].args.payout, spreadPayout);
+            assert.equal((await trojanBondingCurve.reserve()).toNumber(), _reserve);
         });
 
         it(`should buy ${tokenPurchaseNumber} tokens for member3`, async() => {
@@ -122,13 +128,81 @@ contract('Trojan Bonding Curve', (accounts) => {
             assert.equal(memberBalance, tokenPurchaseNumber);
             //check project reward equal to the calculated one
             assert.equal(buyTokensTx.logs[2].args.payout, spreadPayout);
+            assert.equal((await trojanBondingCurve.reserve()).toNumber(), _reserve);
         });
 
+        it("should revert when giving ether less than tokens price", async() => {
+            return assertRevert(async () => {
+                await trojanBondingCurve.buy(tokenPurchaseNumber, { from: member4, value: 0 })
+                'sender does not have enough value'
+            })
+        });
     });
-/*
-    describe("Sell tokens", async() => {
 
-        it('');
+    describe("High volume tokens", async() => {
+        let tokenPurchaseNumber = 50000;
+        let purchaseReturn;
+        let spreadPayout;
+
+        describe("Buy", async() => {
+            beforeEach(async() => {    
+                let totalSupply = await trojanBondingCurve.totalSupply();
+                let newSupply = parseInt(totalSupply) + parseInt(tokenPurchaseNumber);
+                //calculate purchase price
+                purchaseReturn = buyIntegral(newSupply, _slopeNumerator, _slopeDenominator) - parseInt(_reserve);
+                //calculate spread payout
+                let spreadBefore = spread(totalSupply.toNumber(), _slopeNumerator, _slopeDenominator, _sellPercentage);
+                let spreadAfter = spread(newSupply, _slopeNumerator, _slopeDenominator, _sellPercentage);
+                spreadPayout = spreadAfter - spreadBefore;
+                _reserve += purchaseReturn;
+                _reserve -= spreadPayout;
+            });
+    
+            it(`should buy ${tokenPurchaseNumber} tokens for member4`, async() => {
+                let price = await trojanBondingCurve.calculatePurchaseReturn(tokenPurchaseNumber, { from: member4 });
+                assert.equal(price.toNumber(), purchaseReturn);
+                let buyTokensTx = await trojanBondingCurve.buy(tokenPurchaseNumber, { from: member4, value: price });
+                let memberBalance = await trojanBondingCurve.balanceOf(member4);
+                assert.equal(memberBalance, tokenPurchaseNumber);
+                //check project reward equal to the calculated one
+                assert.equal(buyTokensTx.logs[2].args.payout, spreadPayout);
+                assert.equal((await trojanBondingCurve.reserve()).toNumber(), _reserve);
+            });
+    
+            it(`should buy ${tokenPurchaseNumber} tokens for member5`, async() => {
+                let price = await trojanBondingCurve.calculatePurchaseReturn(tokenPurchaseNumber, { from: member5 });
+                assert.equal(price.toNumber(), purchaseReturn);
+                let buyTokensTx = await trojanBondingCurve.buy(tokenPurchaseNumber, { from: member5, value: price });
+                let memberBalance = await trojanBondingCurve.balanceOf(member5);
+                assert.equal(memberBalance, tokenPurchaseNumber);
+                //check project reward equal to the calculated one
+                assert.equal(buyTokensTx.logs[2].args.payout, spreadPayout);
+                assert.equal((await trojanBondingCurve.reserve()).toNumber(), _reserve);
+            });
+        });
+
+        describe("Sell", async() => {
+            let sellReward;
+
+            beforeEach(async() => {
+                let totalSupply = await trojanBondingCurve.totalSupply();
+                let newSupply = parseInt(totalSupply) - parseInt(tokenPurchaseNumber);
+                //calculate sell reward
+                sellReward = _reserve - sellIntegral(newSupply, _slopeNumerator, _slopeDenominator, _sellPercentage);
+                _reserve -= sellReward;
+            });
+
+            it(`should sell ${tokenPurchaseNumber} tokens for member4`, async() => {
+                let memberEthBalanceBefore = await web3.eth.getBalance(member4);
+                let sellTokensTx = await trojanBondingCurve.sell(tokenPurchaseNumber, { from: member4 });
+                let memberEthBalanceAfter = await web3.eth.getBalance(member4);
+                let memberBalance = await trojanBondingCurve.balanceOf(member4);
+                assert.equal(sellTokensTx.logs[1].args.rewarded, sellReward);
+                assert.equal(sellTokensTx.logs[1].args.rewarded.toNumber(), memberEthBalanceAfter-memberEthBalanceBefore);
+                assert.equal(memberBalance, 0);
+                assert.equal((await trojanBondingCurve.reserve()).toNumber(), _reserve);
+            });
+        });
     });
-*/
+
 });
