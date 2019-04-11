@@ -27,19 +27,19 @@ const log = (name, value) => {
     );
 }
 
-const buyIntegral = (x, slopeNumerator, slopeDenominator) => {
-    return (slopeNumerator * x * x) / (2 * slopeDenominator);
+const buyTriangleArea = (x) => {
+    return (x * x) /2;
 }
 
-const sellIntegral = (x, slopeNumerator, slopeDenominator, sellPercentage) => {
-    return (slopeNumerator * x * x * sellPercentage) / (200 * slopeDenominator);
+const sellTriangleArea = (x, sellPercentage) => {
+    return (x * x * sellPercentage) / 200;
 }
 
-const spread = (toX, slopeNumerator, slopeDenominator, sellPercentage) => {
-    let buy = buyIntegral(toX, slopeNumerator, slopeDenominator);
-    let sell = sellIntegral(toX, slopeNumerator, slopeDenominator, sellPercentage);
-    return parseInt(buy) - parseInt(sell);
-}
+const calcSpread = (x, sellPercentage) => {
+    let buy = buyTriangleArea(x);
+    let sell = sellTriangleArea(x, sellPercentage);
+    return buy - sell;
+} 
 
 require('chai').should();
 
@@ -89,10 +89,10 @@ contract('Trojan Bonding Curve', (accounts) => {
             let totalSupply = await trojanBondingCurve.totalSupply();
             let newSupply = parseInt(totalSupply) + parseInt(tokenPurchaseNumber);
             //calculate purchase price
-            purchaseReturn = buyIntegral(newSupply, _slopeNumerator, _slopeDenominator) - parseInt(_reserve);
+            purchaseReturn = buyTriangleArea(newSupply) - parseInt(_reserve);
             //calculate spread payout
-            let spreadBefore = spread(totalSupply.toNumber(), _slopeNumerator, _slopeDenominator, _sellPercentage);
-            let spreadAfter = spread(newSupply, _slopeNumerator, _slopeDenominator, _sellPercentage);
+            let spreadBefore = calcSpread(totalSupply.toNumber(), _sellPercentage);
+            let spreadAfter = calcSpread(newSupply, _sellPercentage);
             spreadPayout = spreadAfter - spreadBefore;
             _reserve += purchaseReturn;
             _reserve -= spreadPayout;
@@ -137,6 +137,7 @@ contract('Trojan Bonding Curve', (accounts) => {
                 'sender does not have enough value'
             })
         });
+
     });
 
     describe("High volume tokens", async() => {
@@ -149,10 +150,10 @@ contract('Trojan Bonding Curve', (accounts) => {
                 let totalSupply = await trojanBondingCurve.totalSupply();
                 let newSupply = parseInt(totalSupply) + parseInt(tokenPurchaseNumber);
                 //calculate purchase price
-                purchaseReturn = buyIntegral(newSupply, _slopeNumerator, _slopeDenominator) - parseInt(_reserve);
+                purchaseReturn = buyTriangleArea(newSupply) - parseInt(_reserve);
                 //calculate spread payout
-                let spreadBefore = spread(totalSupply.toNumber(), _slopeNumerator, _slopeDenominator, _sellPercentage);
-                let spreadAfter = spread(newSupply, _slopeNumerator, _slopeDenominator, _sellPercentage);
+                let spreadBefore = calcSpread(totalSupply.toNumber(), _sellPercentage);
+                let spreadAfter = calcSpread(newSupply, _sellPercentage);
                 spreadPayout = spreadAfter - spreadBefore;
                 _reserve += purchaseReturn;
                 _reserve -= spreadPayout;
@@ -188,7 +189,7 @@ contract('Trojan Bonding Curve', (accounts) => {
                 let totalSupply = await trojanBondingCurve.totalSupply();
                 let newSupply = parseInt(totalSupply) - parseInt(tokenPurchaseNumber);
                 //calculate sell reward
-                sellReward = _reserve - sellIntegral(newSupply, _slopeNumerator, _slopeDenominator, _sellPercentage);
+                sellReward = _reserve - sellTriangleArea(newSupply, _sellPercentage);
                 _reserve -= sellReward;
             });
 
@@ -203,6 +204,7 @@ contract('Trojan Bonding Curve', (accounts) => {
                 assert.equal((await trojanBondingCurve.reserve()).toNumber(), _reserve);
             });
         });
+
     });
 
 });
