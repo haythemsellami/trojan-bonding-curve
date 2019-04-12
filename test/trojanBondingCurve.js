@@ -32,7 +32,7 @@ const buyTriangleArea = (base, height) => {
 }
 
 const sellTriangleArea = (base, height, sellPercentage) => {
-    return (base * height * sellPercentage) / 200;
+    return base * height * sellPercentage * 0.005;
 }
 
 const calcSpread = (base, height, sellPercentage) => {
@@ -79,107 +79,97 @@ contract('Trojan Bonding Curve', (accounts) => {
 
     describe("Buy tokens for member1", async() => {
         //number of token to buy
-        let tokenPurchaseNumber = 250;
+        let tokenPurchaseNumber = 1500;
         //price
         let height;
         //spread
         let spreadPayout;
 
-        before(async() => {  
+        beforeEach(async() => {  
             let totalSupply = await trojanBondingCurve.totalSupply();
             //spread before
-            height = await trojanBondingCurve.calculatePurchaseReturn(totalSupply.toNumber(), { from: member1 });
-            let spreadBefore = calcSpread(totalSupply.toNumber(), height.toNumber(), _sellPercentage);
+            height = await trojanBondingCurve.calculatePurchaseReturn(Number(totalSupply));
+            let spreadBefore = calcSpread(Number(totalSupply), Number(height), _sellPercentage);
             //spread after
-            let newSupply = parseInt(totalSupply) + parseInt(tokenPurchaseNumber);
-            height = await trojanBondingCurve.calculatePurchaseReturn(newSupply, { from: member1 });
-            let spreadAfter = calcSpread(newSupply, height.toNumber(), _sellPercentage);
+            let newSupply = Number(totalSupply) + Number(tokenPurchaseNumber);
+            height = await trojanBondingCurve.calculatePurchaseReturn(Number(newSupply));
+            let spreadAfter = calcSpread(newSupply, Number(height), _sellPercentage);
             //calculate spread payout
-            spreadPayout = spreadAfter - spreadBefore;
-            _reserve += height.toNumber();
-            _reserve -= spreadPayout;
+            spreadPayout = Number(spreadAfter) - Number(spreadBefore);
+            _reserve += Number(height);
+            _reserve -= Number(spreadPayout);
         });
 
         it(`should buy ${tokenPurchaseNumber} tokens for member1`, async() => {
-            let price = await trojanBondingCurve.calculatePurchaseReturn(tokenPurchaseNumber, { from: member1 });
-            let buyTokensTx = await trojanBondingCurve.buy(tokenPurchaseNumber, { from: member1, value: price });
+            let buyTokensTx = await trojanBondingCurve.buy(tokenPurchaseNumber, { from: member1, value: height });
             let memberBalance = await trojanBondingCurve.balanceOf(member1);
             assert.equal(memberBalance, tokenPurchaseNumber);
             //check project reward equal to the calculated one
             assert.equal(buyTokensTx.logs[2].args.payout.toNumber(), spreadPayout);
             assert.equal((await trojanBondingCurve.reserve()).toNumber(), _reserve);
         });
-/*
+
         it(`should buy ${tokenPurchaseNumber} tokens for member2`, async() => {
-            let price = await trojanBondingCurve.calculatePurchaseReturn(tokenPurchaseNumber, { from: member2 });
-            assert.equal(price.toNumber(), purchaseReturn);
-            let buyTokensTx = await trojanBondingCurve.buy(tokenPurchaseNumber, { from: member2, value: price });
+            let buyTokensTx = await trojanBondingCurve.buy(tokenPurchaseNumber, { from: member2, value: height });
             let memberBalance = await trojanBondingCurve.balanceOf(member2);
             assert.equal(memberBalance, tokenPurchaseNumber);
             //check project reward equal to the calculated one
-            assert.equal(buyTokensTx.logs[2].args.payout, spreadPayout);
-            assert.equal((await trojanBondingCurve.reserve()).toNumber(), _reserve);
+            assert.equal(buyTokensTx.logs[2].args.payout.toNumber(), spreadPayout);
+            //assert.equal((await trojanBondingCurve.reserve()).toNumber(), _reserve);
         });
 
         it(`should buy ${tokenPurchaseNumber} tokens for member3`, async() => {
-            let price = await trojanBondingCurve.calculatePurchaseReturn(tokenPurchaseNumber, { from: member3 });
-            assert.equal(price.toNumber(), purchaseReturn);
-            let buyTokensTx = await trojanBondingCurve.buy(tokenPurchaseNumber, { from: member3, value: price });
+            let buyTokensTx = await trojanBondingCurve.buy(tokenPurchaseNumber, { from: member3, value: height });
             let memberBalance = await trojanBondingCurve.balanceOf(member3);
             assert.equal(memberBalance, tokenPurchaseNumber);
             //check project reward equal to the calculated one
-            assert.equal(buyTokensTx.logs[2].args.payout, spreadPayout);
+            assert.equal(buyTokensTx.logs[2].args.payout.toNumber(), spreadPayout);
             assert.equal((await trojanBondingCurve.reserve()).toNumber(), _reserve);
         });
-
-        it("should revert when giving ether less than tokens price", async() => {
-            return assertRevert(async () => {
-                await trojanBondingCurve.buy(tokenPurchaseNumber, { from: member4, value: 0 })
-                'sender does not have enough value'
-            })
-        });
-*/
     });
-/*
+
     describe("High volume tokens buy/sell", async() => {
         let tokenPurchaseNumber = 50000;
-        let purchaseReturn;
-        let spreadPayout;
 
         describe("Buy", async() => {
-            beforeEach(async() => {    
+            let height;
+            let spreadPayout;
+
+            beforeEach(async() => {  
                 let totalSupply = await trojanBondingCurve.totalSupply();
-                let newSupply = parseInt(totalSupply) + parseInt(tokenPurchaseNumber);
-                //calculate purchase price
-                purchaseReturn = buyTriangleArea(newSupply) - parseInt(_reserve);
+                //spread before
+                height = await trojanBondingCurve.calculatePurchaseReturn(Number(totalSupply));
+                let spreadBefore = calcSpread(Number(totalSupply), Number(height), _sellPercentage);
+                //spread after
+                let newSupply = Number(totalSupply) + Number(tokenPurchaseNumber);
+                height = await trojanBondingCurve.calculatePurchaseReturn(Number(newSupply));
+                let spreadAfter = calcSpread(newSupply, Number(height), _sellPercentage);
                 //calculate spread payout
-                let spreadBefore = calcSpread(totalSupply.toNumber(), _sellPercentage);
-                let spreadAfter = calcSpread(newSupply, _sellPercentage);
-                spreadPayout = spreadAfter - spreadBefore;
-                _reserve += purchaseReturn;
-                _reserve -= spreadPayout;
+                spreadPayout = Number(spreadAfter) - Number(spreadBefore);
+                _reserve += Number(height);
+                _reserve -= Number(spreadPayout);
             });
     
             it(`should buy ${tokenPurchaseNumber} tokens for member4`, async() => {
-                let price = await trojanBondingCurve.calculatePurchaseReturn(tokenPurchaseNumber, { from: member4 });
-                //assert.equal(price.toNumber(), purchaseReturn);
-                let buyTokensTx = await trojanBondingCurve.buy(tokenPurchaseNumber, { from: member4, value: price });
+                let buyTokensTx = await trojanBondingCurve.buy(tokenPurchaseNumber, { from: member4, value: height });
                 let memberBalance = await trojanBondingCurve.balanceOf(member4);
                 assert.equal(memberBalance, tokenPurchaseNumber);
                 //check project reward equal to the calculated one
-                assert.equal(buyTokensTx.logs[2].args.payout, spreadPayout);
+                assert.equal(buyTokensTx.logs[2].args.payout.toNumber(), spreadPayout);
                 assert.equal((await trojanBondingCurve.reserve()).toNumber(), _reserve);
             });
         });
 
         describe("Sell", async() => {
             let sellReward;
+            let height;
 
             beforeEach(async() => {
                 let totalSupply = await trojanBondingCurve.totalSupply();
-                let newSupply = parseInt(totalSupply) - parseInt(tokenPurchaseNumber);
+                let newSupply = Number(totalSupply) - Number(tokenPurchaseNumber);
+                height = await trojanBondingCurve.calculateSaleReturn(Number(totalSupply));
                 //calculate sell reward
-                sellReward = _reserve - sellTriangleArea(newSupply, _sellPercentage);
+                sellReward = Number(_reserve) - sellTriangleArea(tokenPurchaseNumber, height, _sellPercentage);
                 _reserve -= sellReward;
             });
 
@@ -196,5 +186,5 @@ contract('Trojan Bonding Curve', (accounts) => {
         });
 
     });
-*/
+
 });
